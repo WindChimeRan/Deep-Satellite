@@ -11,11 +11,11 @@
  crop 10 image and do 4 fold augumentation to 43560
 
 ### drawSeg.py
- a manual annotation tool
- left button down to draw a node
- right button down to fill the polygon
- s to save
- Esc to quit
+ a manual annotation tool 
+ left button down to draw a node 
+ right button down to fill the polygon 
+ s to save 
+ Esc to quit 
  remember to use F5 to refresh after drawing
 
  
