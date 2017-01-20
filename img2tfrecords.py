@@ -8,9 +8,9 @@ import cv2
 
 class img2tfrecords:
 
-    crop_x = '../crop_x/'
-    crop_y = '../crop_y/'
-    filename = '../TFRecord/tfDataSet.tfrecords'
+    crop_x = './crop_x/'
+    crop_y = './crop_y/'
+    filename = './TFRecord/tfDataSet.tfrecords'
 
     def extract_x(self,filename):
 
@@ -33,8 +33,9 @@ class img2tfrecords:
 
     def img2bytes(self):
 
-        # path = "../crop_x/"
-        # amount = len(sum([i[2] for i in os.walk(path)], []))
+        path = "./crop_x/"
+        amount = len(sum([i[2] for i in os.walk(path)], []))
+        i = 0
 
         writer = tf.python_io.TFRecordWriter(self.filename)
         for imgId in os.listdir(self.crop_x):
@@ -54,99 +55,34 @@ class img2tfrecords:
             }))
             writer.write(example.SerializeToString())
 
+            i = i+1
+            if i%400 == 0:
+                print(str(round(i/amount*100))+'%')
 
 
         writer.close()
 
-    def _disp_tfrecord(self,tfrecord_file = '../TFRecord/tfDataSet.tfrecords'):
-
-        filename_queue = tf.train.string_input_producer([tfrecord_file])
-        reader = tf.TFRecordReader()
-        _, serialized_example = reader.read(filename_queue)
-        features = tf.parse_single_example(
-            serialized_example,
-            features={
-                'x_raw': tf.FixedLenFeature([], tf.string),
-                'y_raw': tf.FixedLenFeature([], tf.string)
-            }
-        )
-        imgx = tf.decode_raw(features['x_raw'], tf.uint8)
-        imgy = tf.decode_raw(features['y_raw'], tf.uint8)
-
-        imgx = tf.reshape(imgx,[100,100,3])
-        imgy = tf.reshape(imgy, [100, 100])
-        imgx = tf.cast(imgx, tf.float32)
-        imgy = tf.cast(imgy, tf.float32)
 
 
-        return imgx, imgy
+    def mkdir(self):
 
-    def _read_tfrecord(self,tfrecord_file = '../TFRecord/tfDataSet.tfrecords'):
+        if os.path.isdir('./TFRecord/') == False:
+            os.mkdir('./TFRecord/')
 
-        imgx,imgy = self._disp_tfrecord(tfrecord_file)
-        return  imgx * (1. / 255) - 0.5,imgy * (1. / 255)
+def main():
 
-    def disp_one(self):
-
-        sess = tf.InteractiveSession()
-        imgx, imgy = self._disp_tfrecord()
-        x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
-                                                  num_threads=2,
-                                                  batch_size=1, capacity=1000 + 3 * 32,
-                                                  min_after_dequeue=1000)
-
-        sess.run(tf.global_variables_initializer())
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-        for i in range(10):
-            x, y = sess.run([x_batch, y_batch])
-
-            x = np.asarray(x, np.uint8)
-            y = np.asarray(y, np.uint8)
-            y = np.reshape(y, [100, 100])
-            x = np.reshape(x, [100, 100, 3])
-            imx = Image.fromarray(x)
-            imy = Image.fromarray(y)
-            imx.show()
-            imy.show()
-            break
-
-        coord.request_stop()
-        coord.join(threads)
-        sess.close()
-
-    def read_batch(self,batch_size = 10):
-
-        sess = tf.InteractiveSession()
-        imgx, imgy = self._read_tfrecord()
-        x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
-                                                  num_threads=2,
-                                                  batch_size=batch_size, capacity=1000 + 3 * 32,
-                                                  min_after_dequeue=1000)
-
-        sess.run(tf.global_variables_initializer())
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-        x, y = sess.run([x_batch, y_batch])
-
-        coord.request_stop()
-        coord.join(threads)
-        sess.close()
-
-        return x,y
+    a = img2tfrecords()
+    a.mkdir()
+    a.img2bytes()
 
 if __name__ == '__main__':
 
-    a = img2tfrecords()
-
-    a.img2bytes()
+    main()
 
     #a.disp_one()
 
-    x,y = a.read_batch(1000)
-    print(x.shape,y.shape)
+    # x,y = a.read_batch(1000)
+    # print(x.shape,y.shape)
 
 
 
