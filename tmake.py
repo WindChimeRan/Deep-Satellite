@@ -1,5 +1,5 @@
-import crop
-import img2tfrecords
+from crop import crop
+from img2tfrecords import img2tfrecords
 
 a = crop()
 a.mkdir()
