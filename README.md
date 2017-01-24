@@ -1,8 +1,8 @@
 # Deep-Satellite
 
-## data set
+## data
  The images come from dstl
- 25 polygon annotated image in total
+ 10 polygon annotated image in total
 ### train_x and train_y
  use **vis.py** to draw polygon in **train_y** and visualize the 3 bands images **train_x**
 
@@ -17,5 +17,11 @@
   s to save  
   Esc to quit  
   remember to use F5 to refresh after drawing 
-### img2tfrecord.py
 
+## make dataset
+```shell
+$ python tmake.py
+```
+  then **data.tfrecords**
+## test dataset
+  **read_tfrecorder.py** to read and display the dataset
