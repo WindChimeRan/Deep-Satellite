@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-def _disp_tfrecord(tfrecord_file = './TFRecord/tfDataSet.tfrecords'):
+def _disp_tfrecord(tfrecord_file = './data.tfrecords'):
 
     filename_queue = tf.train.string_input_producer([tfrecord_file])
     reader = tf.TFRecordReader()
@@ -26,7 +26,7 @@ def _disp_tfrecord(tfrecord_file = './TFRecord/tfDataSet.tfrecords'):
 
     return imgx, imgy
 
-def read_tfrecord(tfrecord_file = './TFRecord/tfDataSet.tfrecords'):
+def read_tfrecord(tfrecord_file = './data.tfrecords'):
 
     imgx ,imgy = _disp_tfrecord(tfrecord_file)
     return  imgx * (1. / 255) - 0.5 ,imgy * (1. / 255)
@@ -84,6 +84,6 @@ def read_batch(batch_size = 100):
 
 if __name__ == '__main__':
 
-    x,y = read_batch(100)
+    x,y = read_batch(32)
     print(x.shape,y.shape)
     disp_one()
