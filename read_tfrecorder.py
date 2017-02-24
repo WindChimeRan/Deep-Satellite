@@ -61,13 +61,13 @@ def disp_one():
     coord.join(threads)
     sess.close()
 
-def read_batch(batch_size = 100):
+def read_batch(batch_size = 32):
 
     sess = tf.InteractiveSession()
     imgx, imgy = read_tfrecord()
     x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
                                               num_threads=2,
-                                              batch_size=batch_size, capacity=1000 + 3 * 32,
+                                              batch_size=batch_size, capacity=1000+3*32,
                                               min_after_dequeue=1000)
 
     sess.run(tf.global_variables_initializer())
@@ -80,7 +80,7 @@ def read_batch(batch_size = 100):
     coord.join(threads)
     sess.close()
 
-    return x ,y
+    return x,y
 
 if __name__ == '__main__':
 
