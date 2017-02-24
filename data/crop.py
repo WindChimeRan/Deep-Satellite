@@ -6,8 +6,6 @@ import pandas as pd
 import numpy as np
 import os
 import cv2
-from shapely.wkt import loads as wkt_loads
-from shapely import affinity
 import matplotlib.pyplot as plt
 from os import listdir
 
