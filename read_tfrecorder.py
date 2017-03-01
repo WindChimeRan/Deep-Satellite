@@ -61,7 +61,7 @@ def disp_one():
     coord.join(threads)
     sess.close()
 
-def read_batch(batch_size = 32):
+def read_batch_for_test(batch_size = 32):
 
     sess = tf.InteractiveSession()
     imgx, imgy = read_tfrecord()
@@ -82,8 +82,17 @@ def read_batch(batch_size = 32):
 
     return x,y
 
+def input_pipeline(data_path, batch_size):
+    imgx, imgy = read_tfrecord(data_path)
+    x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
+                                              num_threads=2,
+                                              batch_size=batch_size, capacity=10000+3*32,
+                                              min_after_dequeue=10000)
+    return x_batch, y_batch
+
+
 if __name__ == '__main__':
 
-    x,y = read_batch(32)
+    x,y = read_batch_for_test(32)
     print(x.shape,y.shape)
     disp_one()
