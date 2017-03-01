@@ -34,8 +34,8 @@ $ python tmake.py
 
 ## train
 
-```
-python train.py
+```shell
+$ python train.py
 ```
 
 ## Acknowledgement
