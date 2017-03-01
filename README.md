@@ -32,3 +32,7 @@ $ python tmake.py
 
  then move it to **/Deep-Satelitte**
 
+# Acknowledgement
+- [fast-neural-style with tensorflow](https://github.com/burness/neural_style_tensorflow/tree/master/fast_neural_style)
+
+- [DeepLab-LargeFOV implemented in tensorflow](https://github.com/DrSleep/tensorflow-deeplab-lfov)
