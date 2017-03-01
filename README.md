@@ -18,12 +18,17 @@
   Esc to quit  
   remember to use F5 to refresh after drawing 
 
-## make dataset
+### make dataset
 ```shell
 $ python tmake.py
 ```
   then **data.tfrecords**
-## test dataset
+### test dataset
   **read_tfrecorder.py** to read and display the dataset
 
+## pretrain model
+
+[Download vgg19.mat](http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat)
+
+ then move it to **/Deep-Satelitte**
 
