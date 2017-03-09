@@ -3,6 +3,12 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
+
+#IMG_MEAN = np.array((42.9496727,  42.9496727,  42.9496727), dtype=np.float32)
+
+IMG_MEAN = np.array((127.5,  127.5,  127.5), dtype=np.float32)
+
+
 def _disp_tfrecord(tfrecord_file = './data.tfrecords'):
 
     filename_queue = tf.train.string_input_producer([tfrecord_file])
@@ -23,13 +29,14 @@ def _disp_tfrecord(tfrecord_file = './data.tfrecords'):
     imgx = tf.cast(imgx, tf.float32)
     imgy = tf.cast(imgy, tf.float32)
 
-
     return imgx, imgy
+
 
 def read_tfrecord(tfrecord_file = './data.tfrecords'):
 
     imgx ,imgy = _disp_tfrecord(tfrecord_file)
-    return  imgx * (1. / 255) - 0.5 ,imgy * (1. / 255)
+    return (imgx-IMG_MEAN), imgy * (1. / 255)
+
 
 def disp_one():
 
@@ -61,6 +68,7 @@ def disp_one():
     coord.join(threads)
     sess.close()
 
+
 def read_batch_for_test(batch_size = 32):
 
     sess = tf.InteractiveSession()
@@ -82,17 +90,24 @@ def read_batch_for_test(batch_size = 32):
 
     return x,y
 
+
 def input_pipeline(data_path, batch_size):
+
     imgx, imgy = read_tfrecord(data_path)
     x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
-                                              num_threads=2,
+                                              num_threads=24,
                                               batch_size=batch_size, capacity=10000+3*32,
                                               min_after_dequeue=10000)
     return x_batch, y_batch
 
 
+def img_mean():
+
+    x, _ = read_batch_for_test(10000)
+    return np.mean(x, axis=(0,1,2))
+
 if __name__ == '__main__':
 
-    x,y = read_batch_for_test(32)
-    print(x.shape,y.shape)
-    disp_one()
+    x,y = read_batch_for_test(100)
+    print(np.max(x,axis=(0,1,2)))
+    # disp_one()
