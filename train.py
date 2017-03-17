@@ -27,34 +27,44 @@ tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 FLAGS = tf.app.flags.FLAGS
 
+def train():
 
-x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
+    x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
-net = deeplab(FLAGS.VGG_PATH)
+    net = deeplab(FLAGS.VGG_PATH)
 
-loss = net.loss(x_batch,y_batch)
+    loss = net.loss(x_batch, y_batch)
 
-optimiser = tf.train.AdamOptimizer(learning_rate=1e4)
-trainable = tf.trainable_variables()
-optim = optimiser.minimize(loss, var_list=trainable)
+    optimiser = tf.train.AdamOptimizer(learning_rate=1e4)
+    trainable = tf.trainable_variables()
+    optim = optimiser.minimize(loss, var_list=trainable)
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
 
-sess = tf.InteractiveSession(config=config)
-init = tf.global_variables_initializer()
-sess.run(init)
+    sess = tf.InteractiveSession(config=config)
 
-coord = tf.train.Coordinator()
-threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    init = tf.global_variables_initializer()
+    sess.run(init)
 
-for epoch in range(FLAGS.TRAIN_NUM):
-    start_time = time.time()
-    loss_value, _ = sess.run([loss,optim])
-    duration = time.time() - start_time
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    print(len(trainable))
 
-    print('epoch {:d} \t loss = {:.3f}, ({:.3f} sec/step)'.format(epoch, loss_value, duration))
 
-coord.request_stop()
-coord.join(threads)
-sess.close()
+    for epoch in range(FLAGS.TRAIN_NUM):
+
+        start_time = time.time()
+
+        #loss_value = sess.run(loss)
+        loss_value, _ = sess.run([loss,optim])
+        duration = time.time() - start_time
+
+        print('epoch {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(epoch, loss_value, duration))
+
+    coord.request_stop()
+    coord.join(threads)
+    sess.close()
+
+if __name__ == '__main__':
+    train()

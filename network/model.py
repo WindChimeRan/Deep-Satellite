@@ -1,4 +1,4 @@
-import  tensorflow as tf
+import tensorflow as tf
 import numpy as np
 import scipy.io
 from scipy import misc
@@ -35,11 +35,19 @@ class deeplab(object):
 
         for i, name in enumerate(self.layers):
             kind = name[:4]
-            if kind == 'conv' or kind == 'atro':
-                kernels, bias = weights[i][0][0][0][0]
-                kernels = np.transpose(kernels, (1, 0, 2, 3))
-                bias = bias.reshape(-1)
-                self.const_parameter[name] = [tf.constant(kernels), tf.constant(bias)]
+            #print(i)
+            if i<20:
+                if kind == 'conv' or kind == 'atro':
+                    kernels, bias = weights[i][0][0][0][0]
+                    kernels = np.transpose(kernels, (1, 0, 2, 3))
+                    bias = bias.reshape(-1)
+                    self.const_parameter[name] = [tf.constant(kernels), tf.constant(bias)]
+            else:
+                if kind == 'conv' or kind == 'atro':
+                    kernels, bias = weights[i][0][0][0][0]
+                    kernels = np.transpose(kernels, (1, 0, 2, 3))
+                    bias = bias.reshape(-1)
+                    self.const_parameter[name] = [tf.Variable(kernels), tf.Variable(bias)]
 
 
         self.atrous6_1 = self.create_variable([3, 3, 512, 256])
@@ -71,9 +79,7 @@ class deeplab(object):
                 current = self._pool_layer(current, name=name)
             net[name] = current
 
-
         assert len(net) == len(self.layers)
-
 
         current = tf.nn.avg_pool(current,ksize=[1,3,3,1],strides=[1,1,1,1],padding='SAME')
 
@@ -142,6 +148,11 @@ class deeplab(object):
 
     def loss(self,x, y_label):
 
+
+
+        # x = tf.convert_to_tensor(x)
+        # y_label = tf.convert_to_tensor(y_label)
+
         # print(x.shape)
         pre_y = self.net(tf.cast(x, tf.float32))
         y_label = tf.reshape(y_label, y_label.shape.as_list()+[1])
@@ -151,8 +162,14 @@ class deeplab(object):
         y_label = tf.reshape(y_label, [-1, 1])
         pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),tf.float32)
 
+        # loss = pre_y
+        # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
+        # loss = tf.nn.softmax(logits=pre_y)
+        # print(y_label.shape)
+        # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=pre_y,labels=tf.cast(tf.squeeze(y_label), tf.int64))
+        #loss = tf.nn.l2_loss(pre_y-y_label)
         # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
-        loss = tf.nn.l2_loss(pre_y-y_label)
+        sg = tf.nn.sigmoid(pre_y)
+        loss = -(y_label*tf.log(sg)+(1-y_label)*tf.log(1-sg))
 
-        # return tf.reduce_sum(loss)
         return tf.reduce_mean(loss)
