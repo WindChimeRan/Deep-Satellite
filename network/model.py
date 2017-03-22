@@ -1,12 +1,11 @@
 import tensorflow as tf
 import numpy as np
 import scipy.io
-from scipy import misc
 
 
 class deeplab(object):
 
-    def __init__(self,data_path):
+    def __init__(self,data_path,frozen_layers):
 
         data = scipy.io.loadmat(data_path)
         # mean = data['normalization'][0][0][0]
@@ -36,7 +35,7 @@ class deeplab(object):
         for i, name in enumerate(self.layers):
             kind = name[:4]
             #print(i)
-            if i<20:
+            if i<frozen_layers:
                 if kind == 'conv' or kind == 'atro':
                     kernels, bias = weights[i][0][0][0][0]
                     kernels = np.transpose(kernels, (1, 0, 2, 3))
@@ -94,6 +93,7 @@ class deeplab(object):
         current = self._atrous_layer(current, self.atrous6_3,self.atrous6_3_b, 1)
         current = tf.nn.relu(current, name=None)
         net['atrous_6_3'] = current
+
 
         return current
 
@@ -165,11 +165,14 @@ class deeplab(object):
         # loss = pre_y
         # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
         # loss = tf.nn.softmax(logits=pre_y)
-        # print(y_label.shape)
+        # print(yape)
         # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=pre_y,labels=tf.cast(tf.squeeze(y_label), tf.int64))
-        #loss = tf.nn.l2_loss(pre_y-y_label)
+        #loss = tf.nn.l2_loss(pre_y-y_label)_label.sh
         # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
+
+        #batch size = 16, maybe not converge, but there is loss at least.
         sg = tf.nn.sigmoid(pre_y)
-        loss = -(y_label*tf.log(sg)+(1-y_label)*tf.log(1-sg))
+        #loss = -y_label*tf.log(sg)-(1-y_label)*tf.log(1-sg)
+        loss = -y_label * tf.log(sg)
 
         return tf.reduce_mean(loss)

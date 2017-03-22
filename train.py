@@ -13,11 +13,17 @@ tf.app.flags.DEFINE_string("VGG_PATH", "imagenet-vgg-verydeep-19.mat",
 
 tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "./data.tfrecords", "Path to training images")
 
-tf.app.flags.DEFINE_integer("BATCH_SIZE", 64,
+tf.app.flags.DEFINE_integer("BATCH_SIZE", 32,
+                            "Number of concurrent images to train on")
+
+tf.app.flags.DEFINE_integer("FROZEN_LAYERS", 20,
                             "Number of concurrent images to train on")
 
 tf.app.flags.DEFINE_integer("TRAIN_NUM", 20000,
                             "Number of train epoch")
+
+tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-4,
+                            "learning rate")
 
 tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
@@ -31,11 +37,11 @@ def train():
 
     x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
-    net = deeplab(FLAGS.VGG_PATH)
+    net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
     loss = net.loss(x_batch, y_batch)
 
-    optimiser = tf.train.AdamOptimizer(learning_rate=1e4)
+    optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
     trainable = tf.trainable_variables()
     optim = optimiser.minimize(loss, var_list=trainable)
 
@@ -52,7 +58,7 @@ def train():
     print(len(trainable))
 
 
-    for epoch in range(FLAGS.TRAIN_NUM):
+    for step in range(FLAGS.TRAIN_NUM):
 
         start_time = time.time()
 
@@ -60,7 +66,7 @@ def train():
         loss_value, _ = sess.run([loss,optim])
         duration = time.time() - start_time
 
-        print('epoch {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(epoch, loss_value, duration))
+        print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
 
     coord.request_stop()
     coord.join(threads)
