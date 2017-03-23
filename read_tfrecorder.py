@@ -93,7 +93,26 @@ def read_batch_for_test(batch_size = 32):
 
 def input_pipeline(data_path, batch_size):
 
-    imgx, imgy = read_tfrecord(data_path)
+    filename_queue = tf.train.string_input_producer([data_path])
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            'x_raw': tf.FixedLenFeature([], tf.string),
+            'y_raw': tf.FixedLenFeature([], tf.string)
+        }
+    )
+    imgx = tf.decode_raw(features['x_raw'], tf.uint8)
+    imgy = tf.decode_raw(features['y_raw'], tf.uint8)
+
+    imgx = tf.reshape(imgx ,[100 ,100 ,3])
+    imgy = tf.reshape(imgy, [100, 100])
+    imgx = tf.cast(imgx, tf.float32)
+    imgy = tf.cast(imgy, tf.float32)
+
+
+    imgx, imgy = imgx-IMG_MEAN, imgy * (1. / 255)
     x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
                                               num_threads=24,
                                               batch_size=batch_size, capacity=10000+3*32,

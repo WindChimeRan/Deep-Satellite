@@ -13,16 +13,19 @@ tf.app.flags.DEFINE_string("VGG_PATH", "imagenet-vgg-verydeep-19.mat",
 
 tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "./data.tfrecords", "Path to training images")
 
-tf.app.flags.DEFINE_integer("BATCH_SIZE", 128,
+tf.app.flags.DEFINE_integer("BATCH_SIZE", 32,
                             "Number of concurrent images to train on")
 
 tf.app.flags.DEFINE_integer("FROZEN_LAYERS", 20,
                             "Number of concurrent images to train on")
 
 tf.app.flags.DEFINE_integer("TRAIN_NUM", 20000,
-                            "Number of train epoch")
+                            "Number of train steps")
 
-tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-5,
+tf.app.flags.DEFINE_integer("EPOCH_MAX", 100,
+                            "Max number of train epoch")
+
+tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-6,
                             "learning rate")
 
 tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
@@ -33,19 +36,37 @@ tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 FLAGS = tf.app.flags.FLAGS
 
+def tower_loss(scope):
+
+    x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
+
+    net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
+
+    building_loss,bg_loss,loss = net.loss(x_batch, y_batch)
+
+    losses = tf.get_collection('losses',scope)
+
+    total_loss = tf.add_n(losses, name = 'total_losses')
+
+    return total_loss
+
+def average_gradients(tower_grads):
+
+    pass
+
 def train():
 
     x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
     net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
-    loss = net.loss(x_batch, y_batch)
+    building_loss,bg_loss,loss = net.loss(x_batch, y_batch)
 
     optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
     trainable = tf.trainable_variables()
     optim = optimiser.minimize(loss, var_list=trainable)
 
-    config = tf.ConfigProto()
+    config = tf.ConfigProto(log_device_placement=False)
     config.gpu_options.allow_growth = True
 
     sess = tf.InteractiveSession(config=config)
@@ -63,10 +84,13 @@ def train():
         start_time = time.time()
 
         #loss_value = sess.run(loss)
-        loss_value, _ = sess.run([loss,optim])
+        bl, bgl, loss_value, _ = sess.run([building_loss,bg_loss,loss, optim])
+
+        #loss_value, _ = sess.run([loss,optim])
         duration = time.time() - start_time
 
-        print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
+        print('step {:d} \t loss = {:.8f}, building_loss = {:.8f}, background_loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value,bl,bgl, duration))
+        #print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
 
     coord.request_stop()
     coord.join(threads)

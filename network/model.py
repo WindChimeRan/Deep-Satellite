@@ -8,8 +8,6 @@ class deeplab(object):
     def __init__(self,data_path,frozen_layers):
 
         data = scipy.io.loadmat(data_path)
-        # mean = data['normalization'][0][0][0]
-        # mean_pixel = np.mean(mean, axis=(0, 1))
         weights = data['layers'][0]
 
         self.layers = (
@@ -34,19 +32,21 @@ class deeplab(object):
 
         for i, name in enumerate(self.layers):
             kind = name[:4]
-            #print(i)
+
             if i<frozen_layers:
-                if kind == 'conv' or kind == 'atro':
-                    kernels, bias = weights[i][0][0][0][0]
-                    kernels = np.transpose(kernels, (1, 0, 2, 3))
-                    bias = bias.reshape(-1)
-                    self.const_parameter[name] = [tf.constant(kernels), tf.constant(bias)]
+                with tf.variable_scope('frozen_layers') as scope:
+                    if kind == 'conv' or kind == 'atro':
+                        kernels, bias = weights[i][0][0][0][0]
+                        kernels = np.transpose(kernels, (1, 0, 2, 3))
+                        bias = bias.reshape(-1)
+                        self.const_parameter[name] = [tf.constant(kernels), tf.constant(bias)]
             else:
-                if kind == 'conv' or kind == 'atro':
-                    kernels, bias = weights[i][0][0][0][0]
-                    kernels = np.transpose(kernels, (1, 0, 2, 3))
-                    bias = bias.reshape(-1)
-                    self.const_parameter[name] = [tf.Variable(kernels), tf.Variable(bias)]
+                with tf.variable_scope('trainable_layers') as scope:
+                    if kind == 'conv' or kind == 'atro':
+                        kernels, bias = weights[i][0][0][0][0]
+                        kernels = np.transpose(kernels, (1, 0, 2, 3))
+                        bias = bias.reshape(-1)
+                        self.const_parameter[name] = [tf.Variable(kernels), tf.Variable(bias)]
 
 
         self.atrous6_1 = self.create_variable([3, 3, 512, 256])
@@ -178,6 +178,13 @@ class deeplab(object):
         #!!!!!let me weighted it !!!!!!!
         # loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
 
-        loss = -(1*y_label * tf.log(sg) + 4*(1 - y_label) * tf.log(1 - sg))/5
+        building_loss = tf.reduce_mean(-1*y_label * tf.log(sg))
+        bg_loss = tf.reduce_mean(-(1 - y_label) * tf.log(1 - sg))
 
-        return tf.reduce_max(loss)
+        loss = -(9*y_label * tf.log(sg) + 1*(1 - y_label) * tf.log(1 - sg))/10
+        loss = tf.reduce_mean(loss)
+
+        tf.add_to_collection('losses',loss)
+
+        return building_loss, bg_loss, tf.add_n(tf.get_collection('losses'), name = 'total_loss')
+
