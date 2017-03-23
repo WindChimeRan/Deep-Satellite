@@ -52,49 +52,68 @@ def tower_loss(scope):
 
 def average_gradients(tower_grads):
 
-    pass
+    average_grads = []
+    for grad_and_vars in zip(*tower_grads):
+
+        grads = []
+        for g, _ in grad_and_vars:
+            expanded_g = tf.expand_dims(g,0)
+            grads.append(expanded_g)
+
+        grad = tf.concat(values=grads,axis=0)
+        grad = tf.reduce_mean(grad,axis=0)
+
+        v = grad_and_vars[0][1]
+        grad_and_vars = (grad, v)
+        average_grads.append(grad_and_vars)
+
+    return average_grads
 
 def train():
 
-    x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
-    net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
+    with tf.Graph().as_default(), tf.device('/cpu:0'):
 
-    building_loss,bg_loss,loss = net.loss(x_batch, y_batch)
+        x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
-    optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
-    trainable = tf.trainable_variables()
-    optim = optimiser.minimize(loss, var_list=trainable)
+        net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
-    config = tf.ConfigProto(log_device_placement=False)
-    config.gpu_options.allow_growth = True
+        building_loss,bg_loss,loss = net.loss(x_batch, y_batch)
 
-    sess = tf.InteractiveSession(config=config)
+        optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
+        trainable = tf.trainable_variables()
+        optim = optimiser.minimize(loss, var_list=trainable)
 
-    init = tf.global_variables_initializer()
-    sess.run(init)
+        config = tf.ConfigProto(log_device_placement=False)
+        config.gpu_options.allow_growth = True
 
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-    print(len(trainable))
+        sess = tf.InteractiveSession(config=config)
+
+        init = tf.global_variables_initializer()
+        sess.run(init)
+
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
+        # print(len(trainable))
 
 
-    for step in range(FLAGS.TRAIN_NUM):
+        for step in range(FLAGS.TRAIN_NUM):
 
-        start_time = time.time()
+            start_time = time.time()
 
-        #loss_value = sess.run(loss)
-        bl, bgl, loss_value, _ = sess.run([building_loss,bg_loss,loss, optim])
+            #loss_value = sess.run(loss)
+            bl, bgl, loss_value, _ = sess.run([building_loss,bg_loss,loss, optim])
 
-        #loss_value, _ = sess.run([loss,optim])
-        duration = time.time() - start_time
+            #loss_value, _ = sess.run([loss,optim])
+            duration = time.time() - start_time
 
-        print('step {:d} \t loss = {:.8f}, building_loss = {:.8f}, background_loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value,bl,bgl, duration))
-        #print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
+            print('step {:d} \t loss = {:.8f}, building_loss = {:.8f}, background_loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value,bl,bgl, duration))
+            #print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
 
-    coord.request_stop()
-    coord.join(threads)
-    sess.close()
+        coord.request_stop()
+        coord.join(threads)
+        sess.close()
 
 if __name__ == '__main__':
     train()
