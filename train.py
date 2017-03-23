@@ -13,7 +13,7 @@ tf.app.flags.DEFINE_string("VGG_PATH", "imagenet-vgg-verydeep-19.mat",
 
 tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "./data.tfrecords", "Path to training images")
 
-tf.app.flags.DEFINE_integer("BATCH_SIZE", 32,
+tf.app.flags.DEFINE_integer("BATCH_SIZE", 128,
                             "Number of concurrent images to train on")
 
 tf.app.flags.DEFINE_integer("FROZEN_LAYERS", 20,
@@ -22,7 +22,7 @@ tf.app.flags.DEFINE_integer("FROZEN_LAYERS", 20,
 tf.app.flags.DEFINE_integer("TRAIN_NUM", 20000,
                             "Number of train epoch")
 
-tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-4,
+tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-5,
                             "learning rate")
 
 tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")

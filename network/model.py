@@ -172,7 +172,12 @@ class deeplab(object):
 
         #batch size = 16, maybe not converge, but there is loss at least.
         sg = tf.nn.sigmoid(pre_y)
-        #loss = -y_label*tf.log(sg)-(1-y_label)*tf.log(1-sg)
-        loss = -y_label * tf.log(sg)
 
-        return tf.reduce_mean(loss)
+        #!!!!!converge but end at 0.69314718!!!!!!
+        #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
+        #!!!!!let me weighted it !!!!!!!
+        # loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
+
+        loss = -(1*y_label * tf.log(sg) + 4*(1 - y_label) * tf.log(1 - sg))/5
+
+        return tf.reduce_max(loss)
