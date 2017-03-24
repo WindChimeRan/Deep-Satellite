@@ -36,24 +36,78 @@ tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 FLAGS = tf.app.flags.FLAGS
 
+def tower_loss(scope):
+
+    x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
+
+    net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
+
+    loss = net.loss(x_batch, y_batch)
+
+    losses = tf.get_collection('losses',scope)
+
+    total_loss = tf.add_n(losses, name = 'total_losses')
+
+    return total_loss
+
+def average_gradients(tower_grads):
+
+    average_grads = []
+    for grad_and_vars in zip(*tower_grads):
+
+        grads = []
+        for g, _ in grad_and_vars:
+            expanded_g = tf.expand_dims(g,0)
+            grads.append(expanded_g)
+
+        grad = tf.concat(values=grads,axis=0)
+        grad = tf.reduce_mean(grad,axis=0)
+
+        v = grad_and_vars[0][1]
+        grad_and_vars = (grad, v)
+        average_grads.append(grad_and_vars)
+
+    return average_grads
+
 
 def train():
-
 
     with tf.Graph().as_default(), tf.device('/cpu:0'):
 
         x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
+        y_batch = tf.cast(y_batch, tf.float32)
 
         net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
-        loss = net.loss(x_batch, y_batch)
-
         optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
         trainable = tf.trainable_variables()
-        optim = optimiser.minimize(loss, var_list=trainable)
 
-        config = tf.ConfigProto(log_device_placement=False)
+
+        tower_grads = []
+
+
+        with tf.variable_scope(tf.get_variable_scope()):
+
+            for i in range(FLAGS.NUM_GPUS):
+                with tf.device('/gpu:%d' % i):
+                    with tf.name_scope('GPU_%d' % i) as scope:
+
+                        loss = net.loss(x_batch, y_batch)
+                        # loss = tower_loss(scope)
+                        tf.get_variable_scope().reuse_variables()
+                        grads = optimiser.compute_gradients(loss)
+                        tower_grads.append(grads)
+
+
+        grads = average_gradients(tower_grads)
+        apply_gradient_op = optimiser.apply_gradients(grads)
+        train_op = apply_gradient_op
+
+        #optim = optimiser.minimize(loss, var_list=trainable)
+
+        config = tf.ConfigProto(allow_soft_placement = True, log_device_placement=True)
         config.gpu_options.allow_growth = True
+
 
         sess = tf.InteractiveSession(config=config)
 
@@ -65,14 +119,13 @@ def train():
 
         # print(len(trainable))
 
-
         for step in range(FLAGS.TRAIN_NUM):
 
             start_time = time.time()
 
             #loss_value = sess.run(loss)
-            loss_value, _ = sess.run([loss, optim])
-
+            #bl, bgl, loss_value, _ = sess.run([building_loss,bg_loss,loss, optim])
+            _, loss_value = sess.run([train_op,loss])
             #loss_value, _ = sess.run([loss,optim])
             duration = time.time() - start_time
 

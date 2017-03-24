@@ -39,23 +39,23 @@ class deeplab(object):
                         kernels, bias = weights[i][0][0][0][0]
                         kernels = np.transpose(kernels, (1, 0, 2, 3))
                         bias = bias.reshape(-1)
-                        self.const_parameter[name] = [tf.constant(kernels), tf.constant(bias)]
+                        self.const_parameter[name] = [tf.constant(kernels,name=name), tf.constant(bias,name=name)]
             else:
                 with tf.variable_scope('trainable_layers') as scope:
                     if kind == 'conv' or kind == 'atro':
                         kernels, bias = weights[i][0][0][0][0]
                         kernels = np.transpose(kernels, (1, 0, 2, 3))
                         bias = bias.reshape(-1)
-                        self.const_parameter[name] = [tf.Variable(kernels), tf.Variable(bias)]
+                        self.const_parameter[name] = [tf.Variable(kernels,name=name), tf.Variable(bias,name=name)]
 
 
-        self.atrous6_1 = self.create_variable([3, 3, 512, 256])
-        self.atrous6_2 = self.create_variable([3, 3, 256, 128])
-        self.atrous6_3 = self.create_variable([3, 3, 128, 1])
+        self.atrous6_1 = self.create_variable([3, 3, 512, 256],name = 'atrous6_1')
+        self.atrous6_2 = self.create_variable([3, 3, 256, 128],name = 'atrous6_2')
+        self.atrous6_3 = self.create_variable([3, 3, 128, 1],name = 'atrous6_3')
 
-        self.atrous6_1_b = self.create_bias_variable([256])
-        self.atrous6_2_b = self.create_bias_variable([128])
-        self.atrous6_3_b = self.create_bias_variable([1])
+        self.atrous6_1_b = self.create_bias_variable([256],name='atrous6_1_b')
+        self.atrous6_2_b = self.create_bias_variable([128],name='atrous6_2_b')
+        self.atrous6_3_b = self.create_bias_variable([1],name='atrous6_3_b')
 
         del data
         del weights
@@ -97,12 +97,12 @@ class deeplab(object):
 
         return current
 
-    def create_bias_variable(self,shape):
+    def create_bias_variable(self,shape, name = None):
         """Create a bias variable of the given name and shape,
            and initialise it to zero.
         """
         initialiser = tf.constant_initializer(value=0.0, dtype=tf.float32)
-        variable = tf.Variable(initialiser(shape=shape), name=None)
+        variable = tf.Variable(initialiser(shape=shape), name=name)
         return variable
 
     def _conv_layer(self,input, weights, bias, name=None):
@@ -129,14 +129,14 @@ class deeplab(object):
         return  tf.nn.bias_add(atrous, bias)
 
 
-    def create_variable(self, shape):
+    def create_variable(self, shape,name = None):
 
         """Create a convolution filter variable of the given name and shape,
            and initialise it using Xavier initialisation
            (http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf).
         """
         initialiser = tf.contrib.layers.xavier_initializer_conv2d(dtype=tf.float32)
-        variable = tf.Variable(initialiser(shape=shape), name=None)
+        variable = tf.Variable(initialiser(shape=shape), name=name)
         return variable
 
     def prepare_label(self,y,new_size):
@@ -148,7 +148,7 @@ class deeplab(object):
 
     def loss(self,x, y_label):
 
-
+        y_label = tf.cast(y_label,tf.float32)
 
         # x = tf.convert_to_tensor(x)
         # y_label = tf.convert_to_tensor(y_label)
@@ -171,20 +171,21 @@ class deeplab(object):
         # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
 
         #batch size = 16, maybe not converge, but there is loss at least.
-        sg = tf.nn.sigmoid(pre_y)
+        #sg = tf.nn.sigmoid(pre_y)
 
         #!!!!!converge but end at 0.69314718!!!!!!
         #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
         #!!!!!let me weighted it !!!!!!!
-        # loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
+        #loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
 
-        building_loss = tf.reduce_mean(-1*y_label * tf.log(sg))
-        bg_loss = tf.reduce_mean(-(1 - y_label) * tf.log(1 - sg))
+        #building_loss = tf.reduce_mean(-1.*y_label * tf.log(sg))
+        #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
 
-        loss = -(9*y_label * tf.log(sg) + 1*(1 - y_label) * tf.log(1 - sg))/10
+        #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,tf.float32),labels=tf.cast(y_label,tf.float32))
         loss = tf.reduce_mean(loss)
 
         tf.add_to_collection('losses',loss)
 
-        return building_loss, bg_loss, tf.add_n(tf.get_collection('losses'), name = 'total_loss')
+        return tf.add_n(tf.get_collection('losses'), name = 'total_loss')
 
