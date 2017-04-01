@@ -28,6 +28,9 @@ tf.app.flags.DEFINE_integer("EPOCH_MAX", 100,
 tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-6,
                             "learning rate")
 
+tf.app.flags.DEFINE_boolean('use_fp16', True,
+                            """Train the model using fp16.""")
+
 tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 # tf.app.flags.DEFINE_string("SUMMARY_PATH", "tensorboard", "Path to store Tensorboard summaries")
@@ -36,13 +39,15 @@ tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 FLAGS = tf.app.flags.FLAGS
 
+dtype = tf.float16 if FLAGS.use_fp16 == True else tf.float32
+
 def tower_loss(scope):
 
     x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
 
     net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
-    loss = net.loss(x_batch, y_batch)
+    _ = net.loss(x_batch, y_batch)
 
     losses = tf.get_collection('losses',scope)
 
@@ -56,7 +61,11 @@ def average_gradients(tower_grads):
     for grad_and_vars in zip(*tower_grads):
 
         grads = []
+        # print grad_and_vars
         for g, _ in grad_and_vars:
+
+            # print(g)
+
             expanded_g = tf.expand_dims(g,0)
             grads.append(expanded_g)
 
@@ -74,14 +83,13 @@ def train():
 
     with tf.Graph().as_default(), tf.device('/cpu:0'):
 
-        x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
-        y_batch = tf.cast(y_batch, tf.float32)
+        # x_batch, y_batch = read_tfrecorder.input_pipeline(FLAGS.TRAIN_IMAGES_PATH, FLAGS.BATCH_SIZE)
+        # y_batch = tf.cast(y_batch, tf.float32)
 
-        net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
+        # net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
         optimiser = tf.train.AdamOptimizer(learning_rate=FLAGS.LEARNING_RATE)
         trainable = tf.trainable_variables()
-
 
         tower_grads = []
 
@@ -92,8 +100,8 @@ def train():
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('GPU_%d' % i) as scope:
 
-                        loss = net.loss(x_batch, y_batch)
-                        # loss = tower_loss(scope)
+                        #loss = net.loss(x_batch, y_batch)
+                        loss = tower_loss(scope)
                         tf.get_variable_scope().reuse_variables()
                         grads = optimiser.compute_gradients(loss)
                         tower_grads.append(grads)
@@ -101,7 +109,7 @@ def train():
 
         grads = average_gradients(tower_grads)
         apply_gradient_op = optimiser.apply_gradients(grads)
-        train_op = apply_gradient_op
+        train_op = tf.group(apply_gradient_op, trainable)
 
         #optim = optimiser.minimize(loss, var_list=trainable)
 

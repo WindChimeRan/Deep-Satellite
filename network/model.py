@@ -57,11 +57,9 @@ class deeplab(object):
         self.atrous6_2_b = self.create_bias_variable([128],name='atrous6_2_b')
         self.atrous6_3_b = self.create_bias_variable([1],name='atrous6_3_b')
 
-        del data
-        del weights
 
 
-    def net(self, input_image):
+    def inference(self, input_image):
 
         net = {}
         current = input_image
@@ -154,14 +152,14 @@ class deeplab(object):
         # y_label = tf.convert_to_tensor(y_label)
 
         # print(x.shape)
-        pre_y = self.net(tf.cast(x, tf.float32))
+        pre_y = self.inference(tf.cast(x, tf.float32))
         y_label = tf.reshape(y_label, y_label.shape.as_list()+[1])
         newsize = tf.stack(pre_y.get_shape()[1:3])
         y_label = self.prepare_label(y_label,newsize)
 
         y_label = tf.reshape(y_label, [-1, 1])
         pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),tf.float32)
-
+        '''
         # loss = pre_y
         # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
         # loss = tf.nn.softmax(logits=pre_y)
@@ -182,10 +180,10 @@ class deeplab(object):
         #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
 
         #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
-        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,tf.float32),labels=tf.cast(y_label,tf.float32))
-        loss = tf.reduce_mean(loss)
+        '''
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,tf.float32),labels=tf.cast(y_label,tf.float32),name = 'sigmoid_cross_entropy')
+        loss = tf.reduce_mean(loss,name='cross_entropy')
 
         tf.add_to_collection('losses',loss)
 
         return tf.add_n(tf.get_collection('losses'), name = 'total_loss')
-
