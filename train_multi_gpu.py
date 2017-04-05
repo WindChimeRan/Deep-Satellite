@@ -19,7 +19,7 @@ tf.app.flags.DEFINE_integer("BATCH_SIZE", 32,
 tf.app.flags.DEFINE_integer("FROZEN_LAYERS", 20,
                             "Number of concurrent images to train on")
 
-tf.app.flags.DEFINE_integer("TRAIN_NUM", 20000,
+tf.app.flags.DEFINE_integer("TRAIN_NUM", 200000,
                             "Number of train steps")
 
 tf.app.flags.DEFINE_integer("EPOCH_MAX", 100,
@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-6,
 tf.app.flags.DEFINE_boolean('use_fp16', True,
                             """Train the model using fp16.""")
 
-tf.app.flags.DEFINE_integer("NUM_GPUS", 2, "How many GPUs to use")
+tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
 
 # tf.app.flags.DEFINE_string("SUMMARY_PATH", "tensorboard", "Path to store Tensorboard summaries")
 # tf.app.flags.DEFINE_integer("IMAGE_SIZE", 100, "Size of output image")
@@ -109,7 +109,7 @@ def train():
 
         grads = average_gradients(tower_grads)
         apply_gradient_op = optimiser.apply_gradients(grads)
-        train_op = tf.group(apply_gradient_op, trainable)
+        train_op = tf.group(apply_gradient_op)
 
         #optim = optimiser.minimize(loss, var_list=trainable)
 
