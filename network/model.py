@@ -3,6 +3,8 @@ import numpy as np
 import scipy.io
 
 
+dtype = tf.float16
+
 class deeplab(object):
 
     def __init__(self,data_path,frozen_layers):
@@ -39,14 +41,14 @@ class deeplab(object):
                         kernels, bias = weights[i][0][0][0][0]
                         kernels = np.transpose(kernels, (1, 0, 2, 3))
                         bias = bias.reshape(-1)
-                        self.const_parameter[name] = [tf.constant(kernels,name=name), tf.constant(bias,name=name)]
+                        self.const_parameter[name] = [tf.constant(kernels,name=name,dtype=dtype), tf.constant(bias,name=name,dtype=dtype)]
             else:
                 with tf.variable_scope('trainable_layers') as scope:
                     if kind == 'conv' or kind == 'atro':
                         kernels, bias = weights[i][0][0][0][0]
                         kernels = np.transpose(kernels, (1, 0, 2, 3))
                         bias = bias.reshape(-1)
-                        self.const_parameter[name] = [tf.Variable(kernels,name=name), tf.Variable(bias,name=name)]
+                        self.const_parameter[name] = [tf.Variable(kernels,name=name,dtype=dtype), tf.Variable(bias,name=name,dtype=dtype)]
 
 
         self.atrous6_1 = self.create_variable([3, 3, 512, 256],name = 'atrous6_1')
@@ -99,7 +101,7 @@ class deeplab(object):
         """Create a bias variable of the given name and shape,
            and initialise it to zero.
         """
-        initialiser = tf.constant_initializer(value=0.0, dtype=tf.float32)
+        initialiser = tf.constant_initializer(value=0.0, dtype=dtype)
         variable = tf.Variable(initialiser(shape=shape), name=name)
         return variable
 
@@ -133,7 +135,7 @@ class deeplab(object):
            and initialise it using Xavier initialisation
            (http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf).
         """
-        initialiser = tf.contrib.layers.xavier_initializer_conv2d(dtype=tf.float32)
+        initialiser = tf.contrib.layers.xavier_initializer_conv2d(dtype=dtype)
         variable = tf.Variable(initialiser(shape=shape), name=name)
         return variable
 
@@ -146,19 +148,15 @@ class deeplab(object):
 
     def loss(self,x, y_label):
 
-        y_label = tf.cast(y_label,tf.float32)
+        y_label = tf.cast(y_label,dtype)
 
-        # x = tf.convert_to_tensor(x)
-        # y_label = tf.convert_to_tensor(y_label)
-
-        # print(x.shape)
-        pre_y = self.inference(tf.cast(x, tf.float32))
+        pre_y = self.inference(tf.cast(x, dtype))
         y_label = tf.reshape(y_label, y_label.shape.as_list()+[1])
         newsize = tf.stack(pre_y.get_shape()[1:3])
         y_label = self.prepare_label(y_label,newsize)
 
         y_label = tf.reshape(y_label, [-1, 1])
-        pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),tf.float32)
+        pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),dtype)
         '''
         # loss = pre_y
         # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
@@ -181,7 +179,7 @@ class deeplab(object):
 
         #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
         '''
-        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,tf.float32),labels=tf.cast(y_label,tf.float32),name = 'sigmoid_cross_entropy')
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,dtype),labels=tf.cast(y_label,dtype),name = 'sigmoid_cross_entropy')
         loss = tf.reduce_mean(loss,name='cross_entropy')
 
         tf.add_to_collection('losses',loss)
