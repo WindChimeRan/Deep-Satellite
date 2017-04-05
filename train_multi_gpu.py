@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-6,
 tf.app.flags.DEFINE_boolean('use_fp16', True,
                             """Train the model using fp16.""")
 
-tf.app.flags.DEFINE_integer("NUM_GPUS", 4, "How many GPUs to use")
+tf.app.flags.DEFINE_integer("NUM_GPUS", 2, "How many GPUs to use")
 
 # tf.app.flags.DEFINE_string("SUMMARY_PATH", "tensorboard", "Path to store Tensorboard summaries")
 # tf.app.flags.DEFINE_integer("IMAGE_SIZE", 100, "Size of output image")
@@ -103,7 +103,7 @@ def train():
                         #loss = net.loss(x_batch, y_batch)
                         loss = tower_loss(scope)
                         tf.get_variable_scope().reuse_variables()
-                        grads = optimiser.compute_gradients(loss)
+                        grads = optimiser.compute_gradients(loss,tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope))
                         tower_grads.append(grads)
 
 
