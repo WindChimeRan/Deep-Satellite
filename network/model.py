@@ -26,11 +26,9 @@ class deeplab(object):
         'atrous5_1', 'relu5_1', 'atrous5_2', 'relu5_2', 'atrous5_3',
         'relu5_3', 'atrous5_4', 'relu5_4'
 
-        # 'natrous_6_1','relu6_2''nconv6_3','relu6_4', 'nconv6_5'
     )
 
         self.const_parameter = {}
-
 
         for i, name in enumerate(self.layers):
             kind = name[:4]
@@ -51,12 +49,12 @@ class deeplab(object):
                         self.const_parameter[name] = [tf.Variable(kernels,name=name,dtype=dtype), tf.Variable(bias,name=name,dtype=dtype)]
 
 
-        self.atrous6_1 = self.create_variable([3, 3, 512, 256],name = 'atrous6_1')
-        self.atrous6_2 = self.create_variable([3, 3, 256, 128],name = 'atrous6_2')
-        self.atrous6_3 = self.create_variable([3, 3, 128, 1],name = 'atrous6_3')
+        self.atrous6_1 = self.create_variable([3, 3, 512, 512],name = 'atrous6_1')
+        self.atrous6_2 = self.create_variable([3, 3, 512, 256],name = 'atrous6_2')
+        self.atrous6_3 = self.create_variable([3, 3, 256, 1],name = 'atrous6_3')
 
-        self.atrous6_1_b = self.create_bias_variable([256],name='atrous6_1_b')
-        self.atrous6_2_b = self.create_bias_variable([128],name='atrous6_2_b')
+        self.atrous6_1_b = self.create_bias_variable([512],name='atrous6_1_b')
+        self.atrous6_2_b = self.create_bias_variable([256],name='atrous6_2_b')
         self.atrous6_3_b = self.create_bias_variable([1],name='atrous6_3_b')
 
 
@@ -95,7 +93,7 @@ class deeplab(object):
         net['atrous_6_3'] = current
 
 
-        return current
+        return net
 
     def create_bias_variable(self,shape, name = None):
         """Create a bias variable of the given name and shape,
@@ -150,7 +148,7 @@ class deeplab(object):
 
         y_label = tf.cast(y_label,dtype)
 
-        pre_y = self.inference(tf.cast(x, dtype))
+        pre_y = self.inference(tf.cast(x, dtype))['atrous_6_3']
         y_label = tf.reshape(y_label, y_label.shape.as_list()+[1])
         newsize = tf.stack(pre_y.get_shape()[1:3])
         y_label = self.prepare_label(y_label,newsize)
@@ -184,4 +182,50 @@ class deeplab(object):
 
         tf.add_to_collection('losses',loss)
 
+
         return tf.add_n(tf.get_collection('losses'), name = 'total_loss')
+
+
+    def info_gain_loss(self, x, y_label):
+        y_label = tf.cast(y_label, dtype)
+
+        pre_y = self.inference(tf.cast(x, dtype))['atrous_6_3']
+        y_label = tf.reshape(y_label, y_label.shape.as_list() + [1])
+        newsize = tf.stack(pre_y.get_shape()[1:3])
+        y_label = self.prepare_label(y_label, newsize)
+
+        y_label = tf.reshape(y_label, [-1, 1])
+        pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]), dtype)
+        '''
+        # loss = pre_y
+        # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
+        # loss = tf.nn.softmax(logits=pre_y)
+        # print(yape)
+        # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=pre_y,labels=tf.cast(tf.squeeze(y_label), tf.int64))
+        #loss = tf.nn.l2_loss(pre_y-y_label)_label.sh
+        # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
+
+        #batch size = 16, maybe not converge, but there is loss at least.
+        #sg = tf.nn.sigmoid(pre_y)
+
+        #!!!!!converge but end at 0.69314718!!!!!!
+        #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
+        #!!!!!let me weighted it !!!!!!!
+        #loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
+
+        #building_loss = tf.reduce_mean(-1.*y_label * tf.log(sg))
+        #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
+
+        #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
+        '''
+
+        logit = tf.nn.sigmoid(tf.cast(pre_y,dtype),name="sigmoid")
+        loss = -(9. * y_label * tf.log(logit) + 1. * (1. - y_label) * tf.log(1. - logit)) / 10.
+
+        # loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y, dtype), labels=tf.cast(y_label, dtype),
+        #                                                name='sigmoid_cross_entropy')
+        loss = tf.reduce_mean(loss, name='cross_entropy')
+
+        tf.add_to_collection('losses', loss)
+
+        return tf.add_n(tf.get_collection('losses'), name='total_loss')
