@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_integer("TRAIN_NUM", 200000,
 tf.app.flags.DEFINE_integer("EPOCH_MAX", 100,
                             "Max number of train epoch")
 
-tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-4,
+tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-5,
                             "learning rate")
 
 tf.app.flags.DEFINE_integer("NUM_GPUS", 2, "How many GPUs to use")
