@@ -93,7 +93,37 @@ class deeplab(object):
         net['atrous_6_3'] = current
 
 
-        return net
+        deconv_shape1 = net["pool4"].get_shape()
+
+        W_t1 = self.create_variable([4, 4, deconv_shape1[3].value, 1], name="W_t1")
+        b_t1 = self.create_bias_variable([deconv_shape1[3].value], name="b_t1")
+        # print(current.get_shape())
+        # 32 7 7 1
+
+        conv_t1 = self.conv2d_transpose_strided(current, W_t1, b_t1, stride=1,output_shape=tf.shape(net["pool4"]))
+        # output_shape
+        # 32 7 7 512
+        #print net["pool4"].get_shape()
+
+        fuse_1 = tf.add(conv_t1, net["pool4"], name="fuse_1")
+        deconv_shape2 = net["pool3"].get_shape()
+        W_t2 = self.create_variable([4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_t2")
+
+        b_t2 = self.create_bias_variable([deconv_shape2[3].value], name="b_t2")
+        conv_t2 = self.conv2d_transpose_strided(fuse_1, W_t2, b_t2, output_shape=tf.shape(net["pool3"]))
+        fuse_2 = tf.add(conv_t2, net["pool3"], name="fuse_2")
+
+        shape = tf.shape(input_image)
+        deconv_shape3 = tf.stack([shape[0], shape[1], shape[2], 1])
+        W_t3 = self.create_variable([16, 16, 1, deconv_shape2[3].value], name="W_t3")
+        b_t3 = self.create_bias_variable([1], name="b_t3")
+        conv_t3 = self.conv2d_transpose_strided(fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
+
+
+
+
+        return  conv_t3
+
 
     def create_bias_variable(self,shape, name = None):
         """Create a bias variable of the given name and shape,
@@ -144,88 +174,30 @@ class deeplab(object):
         return y
         # return tf.one_hot(y, depth=1)
 
+    def conv2d_transpose_strided(self,x, W, b, output_shape=None, stride=2):
+
+        if output_shape is None:
+            output_shape = x.get_shape().as_list()
+            output_shape[1] *= 2
+            output_shape[2] *= 2
+            output_shape[3] = W.get_shape().as_list()[2]
+
+        conv = tf.nn.conv2d_transpose(x, W, output_shape, strides=[1, stride, stride, 1], padding="SAME")
+        return tf.nn.bias_add(conv, b)
+
     def loss(self,x, y_label):
 
-        y_label = tf.cast(y_label,dtype)
+        y_label = tf.cast(y_label,tf.float16)
 
-        pre_y = self.inference(tf.cast(x, dtype))['atrous_6_3']
-        y_label = tf.reshape(y_label, y_label.shape.as_list()+[1])
-        newsize = tf.stack(pre_y.get_shape()[1:3])
-        y_label = self.prepare_label(y_label,newsize)
+        pre_y = self.inference(tf.cast(x, dtype))
 
         y_label = tf.reshape(y_label, [-1, 1])
-        pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),dtype)
-        '''
-        # loss = pre_y
-        # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
-        # loss = tf.nn.softmax(logits=pre_y)
-        # print(yape)
-        # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=pre_y,labels=tf.cast(tf.squeeze(y_label), tf.int64))
-        #loss = tf.nn.l2_loss(pre_y-y_label)_label.sh
-        # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
-
-        #batch size = 16, maybe not converge, but there is loss at least.
-        #sg = tf.nn.sigmoid(pre_y)
-
-        #!!!!!converge but end at 0.69314718!!!!!!
-        #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
-        #!!!!!let me weighted it !!!!!!!
-        #loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
-
-        #building_loss = tf.reduce_mean(-1.*y_label * tf.log(sg))
-        #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
-
-        #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
-        '''
-        loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,dtype),labels=tf.cast(y_label,dtype),name = 'sigmoid_cross_entropy')
-        loss = tf.reduce_mean(loss,name='cross_entropy')
+        pre_y = tf.reshape(pre_y, [-1, 1])
+        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pre_y,labels=y_label))
 
         tf.add_to_collection('losses',loss)
 
 
+
         return tf.add_n(tf.get_collection('losses'), name = 'total_loss')
 
-
-    def info_gain_loss(self, x, y_label):
-        y_label = tf.cast(y_label, dtype)
-
-        pre_y = self.inference(tf.cast(x, dtype))['atrous_6_3']
-        y_label = tf.reshape(y_label, y_label.shape.as_list() + [1])
-        newsize = tf.stack(pre_y.get_shape()[1:3])
-        y_label = self.prepare_label(y_label, newsize)
-
-        y_label = tf.reshape(y_label, [-1, 1])
-        pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]), dtype)
-        '''
-        # loss = pre_y
-        # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
-        # loss = tf.nn.softmax(logits=pre_y)
-        # print(yape)
-        # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=pre_y,labels=tf.cast(tf.squeeze(y_label), tf.int64))
-        #loss = tf.nn.l2_loss(pre_y-y_label)_label.sh
-        # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
-
-        #batch size = 16, maybe not converge, but there is loss at least.
-        #sg = tf.nn.sigmoid(pre_y)
-
-        #!!!!!converge but end at 0.69314718!!!!!!
-        #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
-        #!!!!!let me weighted it !!!!!!!
-        #loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
-
-        #building_loss = tf.reduce_mean(-1.*y_label * tf.log(sg))
-        #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
-
-        #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
-        '''
-
-        logit = tf.nn.sigmoid(tf.cast(pre_y,dtype),name="sigmoid")
-        loss = -(95. * y_label * tf.log(logit) + 5. * (1. - y_label) * tf.log(1. - logit)) / 100.
-
-        # loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y, dtype), labels=tf.cast(y_label, dtype),
-        #                                                name='sigmoid_cross_entropy')
-        loss = tf.reduce_mean(loss, name='cross_entropy')
-
-        tf.add_to_collection('losses', loss)
-
-        return tf.add_n(tf.get_collection('losses'), name='total_loss')
