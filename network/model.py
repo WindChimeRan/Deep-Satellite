@@ -49,9 +49,9 @@ class deeplab(object):
                         self.const_parameter[name] = [tf.Variable(kernels,name=name,dtype=dtype), tf.Variable(bias,name=name,dtype=dtype)]
 
 
-        self.atrous6_1 = self.create_variable([3, 3, 512, 4096],name = 'atrous6_1')
-        self.atrous6_2 = self.create_variable([3, 3, 4096, 4096],name = 'atrous6_2')
-        self.atrous6_3 = self.create_variable([3, 3, 4096, 1],name = 'atrous6_3')
+        self.atrous6_1 = self.create_variable([7, 7, 512, 4096],name = 'atrous6_1')
+        self.atrous6_2 = self.create_variable([1, 1, 4096, 4096],name = 'atrous6_2')
+        self.atrous6_3 = self.create_variable([1, 1, 4096, 1],name = 'atrous6_3')
 
         self.atrous6_1_b = self.create_bias_variable([4096],name='atrous6_1_b')
         self.atrous6_2_b = self.create_bias_variable([4096],name='atrous6_2_b')

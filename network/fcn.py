@@ -49,9 +49,9 @@ class deeplab(object):
                         self.const_parameter[name] = [tf.Variable(kernels,name=name,dtype=dtype), tf.Variable(bias,name=name,dtype=dtype)]
 
 
-        self.atrous6_1 = self.create_variable([3, 3, 512, 4096],name = 'atrous6_1')
-        self.atrous6_2 = self.create_variable([3, 3, 4096, 4096],name = 'atrous6_2')
-        self.atrous6_3 = self.create_variable([3, 3, 4096, 1],name = 'atrous6_3')
+        self.atrous6_1 = self.create_variable([7, 7, 512, 4096],name = 'atrous6_1')
+        self.atrous6_2 = self.create_variable([1, 1, 4096, 4096],name = 'atrous6_2')
+        self.atrous6_3 = self.create_variable([1, 1, 4096, 1],name = 'atrous6_3')
 
         self.atrous6_1_b = self.create_bias_variable([4096],name='atrous6_1_b')
         self.atrous6_2_b = self.create_bias_variable([4096],name='atrous6_2_b')
@@ -97,13 +97,7 @@ class deeplab(object):
 
         W_t1 = self.create_variable([4, 4, deconv_shape1[3].value, 1], name="W_t1")
         b_t1 = self.create_bias_variable([deconv_shape1[3].value], name="b_t1")
-        # print(current.get_shape())
-        # 32 7 7 1
-
         conv_t1 = self.conv2d_transpose_strided(current, W_t1, b_t1, stride=1,output_shape=tf.shape(net["pool4"]))
-        # output_shape
-        # 32 7 7 512
-        #print net["pool4"].get_shape()
 
         fuse_1 = tf.add(conv_t1, net["pool4"], name="fuse_1")
         deconv_shape2 = net["pool3"].get_shape()

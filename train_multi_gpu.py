@@ -11,7 +11,8 @@ import read_tfrecorder
 tf.app.flags.DEFINE_string("VGG_PATH", "imagenet-vgg-verydeep-19.mat",
                            "Path to vgg model weights")
 
-tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "./data.tfrecords", "Path to training images")
+# tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "./data.tfrecords", "Path to training images")
+tf.app.flags.DEFINE_string("TRAIN_IMAGES_PATH", "/home/vision_zhr/Desktop/data.tfrecords", "Path to training images")
 
 tf.app.flags.DEFINE_integer("BATCH_SIZE", 32,
                             "Number of concurrent images to train on")
@@ -25,7 +26,7 @@ tf.app.flags.DEFINE_integer("TRAIN_NUM", 200000,
 tf.app.flags.DEFINE_integer("EPOCH_MAX", 100,
                             "Max number of train epoch")
 
-tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-6,
+tf.app.flags.DEFINE_integer("LEARNING_RATE", 1e-4,
                             "learning rate")
 
 tf.app.flags.DEFINE_integer("NUM_GPUS", 2, "How many GPUs to use")
@@ -44,6 +45,8 @@ def tower_loss(scope):
     net = deeplab(FLAGS.VGG_PATH,FLAGS.FROZEN_LAYERS)
 
     _ = net.loss(x_batch, y_batch)
+
+    # _ = net.loss(x_batch, y_batch)
 
     losses = tf.get_collection('losses',scope)
 
@@ -120,7 +123,7 @@ def train():
             duration = time.time() - start_time
 
             if step%10 == 0:
-                print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))            #print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
+                print('step {:d} \t loss = {:.8f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
 
         coord.request_stop()
         coord.join(threads)
