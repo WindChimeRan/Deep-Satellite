@@ -35,7 +35,7 @@ $ python tmake.py
 ## train
 
 ```shell
-$ python train.py
+$ python FCN.py
 ```
 
 ## Acknowledgement
