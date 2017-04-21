@@ -39,6 +39,6 @@ $ python train.py
 ```
 
 ## Acknowledgement
-- [fast-neural-style with tensorflow](https://github.com/burness/neural_style_tensorflow/tree/master/fast_neural_style)
+- [FCN.tensorflow](https://github.com/shekkizh/FCN.tensorflow)
 
 - [DeepLab-LargeFOV implemented in tensorflow](https://github.com/DrSleep/tensorflow-deeplab-lfov)
