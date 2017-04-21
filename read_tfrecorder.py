@@ -6,7 +6,7 @@ from PIL import Image
 
 #IMG_MEAN = np.array((42.9496727,  42.9496727,  42.9496727), dtype=np.float32)
 
-IMG_MEAN = np.array((127.5,  127.5,  127.5), dtype=np.float32)
+IMG_MEAN = np.array((116.6875 ,115.8125 ,109.3125), dtype=np.float16)
 
 
 def _disp_tfrecord(tfrecord_file = './data.tfrecords'):
@@ -44,7 +44,7 @@ def disp_one():
     imgx, imgy = _disp_tfrecord()
     x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
                                               num_threads=2,
-                                              batch_size=1, capacity=1000 + 3 * 32,
+                                              batch_size=10, capacity=1000 + 3 * 32,
                                               min_after_dequeue=1000)
 
     sess.run(tf.global_variables_initializer())
@@ -56,12 +56,16 @@ def disp_one():
 
         x = np.asarray(x, np.uint8)
         y = np.asarray(y, np.uint8)
-        y = np.reshape(y, [100, 100])
-        x = np.reshape(x, [100, 100, 3])
-        imx = Image.fromarray(x)
-        imy = Image.fromarray(y)
-        imx.show()
-        imy.show()
+
+        xx = [x[id,:,:,:] for id in range(10)]
+        yy = [y[id, :, :] for id in range(10)]
+        for i in range(10):
+
+            imx = Image.fromarray(xx[i])
+            imy = Image.fromarray(yy[i])
+            imx.show()
+            imy.show()
+
         break
 
     coord.request_stop()
@@ -72,17 +76,14 @@ def disp_one():
 def read_batch_for_test(batch_size = 32):
 
     sess = tf.InteractiveSession()
-    imgx, imgy = read_tfrecord()
-    x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
-                                              num_threads=2,
-                                              batch_size=batch_size, capacity=1000+3*32,
-                                              min_after_dequeue=1000)
+    imgx, imgy = input_pipeline("./train.tfrecords",2)
 
     sess.run(tf.global_variables_initializer())
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-    x, y = sess.run([x_batch, y_batch])
+    for i in range(10):
+        x, y = sess.run([imgx, imgy])
+        print y[0,0,1:10]
 
     coord.request_stop()
     coord.join(threads)
@@ -111,11 +112,11 @@ def input_pipeline(data_path, batch_size):
     imgx = tf.cast(imgx, tf.float32)
     imgy = tf.cast(imgy, tf.float32)
 
-
-    imgx, imgy = imgx-IMG_MEAN, imgy * (1. / 255)
+    # imgx, imgy = imgx-IMG_MEAN, imgy * (1. / 255)
+    imgx, imgy = imgx, imgy * (1. / 255)
     x_batch, y_batch = tf.train.shuffle_batch([imgx, imgy],
                                               num_threads=24,
-                                              batch_size=batch_size, capacity=10000+3*32,
+                                              batch_size=batch_size, capacity=50000+6*32,
                                               min_after_dequeue=10000)
     return x_batch, y_batch
 
@@ -126,7 +127,14 @@ def img_mean():
     return np.mean(x, axis=(0,1,2))
 
 if __name__ == '__main__':
-
+    #
     x,y = read_batch_for_test(100)
-    print(np.max(x,axis=(0,1,2)))
-    # disp_one()
+    print(y)
+    # # print(np.max(x,axis=(0,1,2)))
+    # # disp_one()
+    # print x
+    #print(img_mean())
+
+    # print(trainable)
+    # print(len(trainable))
+

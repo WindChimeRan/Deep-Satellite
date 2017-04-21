@@ -155,7 +155,7 @@ class deeplab(object):
 
         y_label = tf.reshape(y_label, [-1, 1])
         pre_y = tf.cast(tf.reshape(pre_y, [-1, 1]),dtype)
-        '''
+
         # loss = pre_y
         # # loss = tf.exp(pre_y)/tf.reduce_sum(tf.exp(pre_y))
         # loss = tf.nn.softmax(logits=pre_y)
@@ -165,18 +165,18 @@ class deeplab(object):
         # loss = tf.nn.softmax_cross_entropy_with_logits(logits=pre_y,labels=y_label)
 
         #batch size = 16, maybe not converge, but there is loss at least.
-        #sg = tf.nn.sigmoid(pre_y)
+        sg = tf.nn.sigmoid(pre_y)
 
         #!!!!!converge but end at 0.69314718!!!!!!
         #!!!!!batch_size = 128, learning_rate = 1e-5, frozen_rate = 20, at step 51!!!!!!!
         #!!!!!let me weighted it !!!!!!!
-        #loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
+        loss = -y_label * tf.log(sg) - (1 - y_label) * tf.log(1 - sg)
 
         #building_loss = tf.reduce_mean(-1.*y_label * tf.log(sg))
         #bg_loss = tf.reduce_mean(-(1. - y_label) * tf.log(1. - sg))
 
         #loss = -(9.*y_label * tf.log(sg) + 1.*(1. - y_label) * tf.log(1. - sg))/10.
-        '''
+
         loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.cast(pre_y,dtype),labels=tf.cast(y_label,dtype),name = 'sigmoid_cross_entropy')
         loss = tf.reduce_mean(loss,name='cross_entropy')
 

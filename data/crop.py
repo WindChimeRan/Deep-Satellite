@@ -1,13 +1,10 @@
-import pandas as pd
-import numpy as np
+
 from scipy import misc
 import tifffile as tiff
-import pandas as pd
+
 import numpy as np
 import os
-import cv2
-import matplotlib.pyplot as plt
-from os import listdir
+
 
 
 class crop:

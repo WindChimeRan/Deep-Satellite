@@ -8,65 +8,62 @@ sys.path.append("..")
 from tool import view_bar
 
 
-class img2tfrecords:
 
-    crop_x = './data/crop_x/'
-    crop_y = './data/crop_y/'
-    filename = './data.tfrecords'
+crop_x = './data/crop_x/'
+crop_y = './data/crop_y/'
+# filename = './data.tfrecords'
 
-    def __extract_x(self, filename):
+def __extract_x(filename):
 
-        image = cv2.imread(filename)
-        b, g, r = cv2.split(image)
-        rgb_image = cv2.merge([r, g, b])
-        return np.asarray(rgb_image, np.uint8)
+    image = cv2.imread(filename)
+    b, g, r = cv2.split(image)
+    rgb_image = cv2.merge([r, g, b])
+    return np.asarray(rgb_image, np.uint8)
 
-    def __extract_y(self, filename):
+def __extract_y(filename):
 
-        image = Image.open(filename)
-        return np.asarray(image, np.uint8)
+    image = Image.open(filename)
+    return np.asarray(image, np.uint8)
 
-    def __int64_feature(self, value):
-        return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+def __int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-    def __bytes_feature(self, value):
-        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+def __bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-    def img2bytes(self):
+def img2bytes(tfrecord,files_list):
 
-        path = "./data/crop_x/"
-        amount = len(sum([os.listdir(path)], []))
-        i = 0
+    # path = "./data/crop_x/"
+    # amount = len(sum([os.listdir(path)], []))
+    # i = 0
 
+    writer = tf.python_io.TFRecordWriter(tfrecord)
+    for imgId in files_list:
 
+        xname = crop_x+imgId
+        yname = crop_y+imgId
 
-        writer = tf.python_io.TFRecordWriter(self.filename)
-        for imgId in os.listdir(self.crop_x):
+        imgx = __extract_x(xname)
+        imgy = __extract_y(yname)
 
-            xname = self.crop_x+imgId
-            yname = self.crop_y+imgId
+        irx = imgx.tostring()
+        iry = imgy.tostring()
 
-            imgx = self.__extract_x(xname)
-            imgy = self.__extract_y(yname)
+        example = tf.train.Example(features=tf.train.Features(feature={
+            'x_raw': __bytes_feature(irx),
+            'y_raw': __bytes_feature(iry)
+        }))
+        writer.write(example.SerializeToString())
+        # view_bar(i, amount)
+        # i = i+1
 
-            irx = imgx.tostring()
-            iry = imgy.tostring()
-
-            example = tf.train.Example(features=tf.train.Features(feature={
-                'x_raw': self.__bytes_feature(irx),
-                'y_raw': self.__bytes_feature(iry)
-            }))
-            writer.write(example.SerializeToString())
-            view_bar(i, amount)
-            i = i+1
-
-        writer.close()
+    writer.close()
 
 
 def main():
 
-    a = img2tfrecords()
-    a.img2bytes()
+
+    img2bytes()
 
 if __name__ == '__main__':
 

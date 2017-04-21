@@ -69,7 +69,7 @@ class deeplab(object):
             if kind == 'conv':
                 current = self._conv_layer(current, self.const_parameter[name][0], self.const_parameter[name][1], name=name)
             elif kind == 'atro':
-                current = self._atrous_layer(current, self.const_parameter[name][0], self.const_parameter[name][1], 2, name=name)
+                current = self._atrous_layer(current, self.const_parameter[name][0], self.const_parameter[name][1], 1, name=name)
             elif kind == 'relu':
                 current = tf.nn.relu(current, name=name)
             elif kind == 'pool':
@@ -80,7 +80,10 @@ class deeplab(object):
 
         current = tf.nn.avg_pool(current,ksize=[1,3,3,1],strides=[1,1,1,1],padding='SAME')
 
-        current = self._atrous_layer(current, self.atrous6_1, self.atrous6_1_b, 12)
+        # print(current.get_shape())
+
+        # current = self._atrous_layer(current, self.atrous6_1, self.atrous6_1_b, 12)
+        current = self._atrous_layer(current, self.atrous6_1, self.atrous6_1_b, 1)
         current = tf.nn.relu(current, name=None)
         net['atrous_6_1'] = current
 
@@ -99,12 +102,19 @@ class deeplab(object):
         b_t1 = self.create_bias_variable([deconv_shape1[3].value], name="b_t1")
         conv_t1 = self.conv2d_transpose_strided(current, W_t1, b_t1, stride=1,output_shape=tf.shape(net["pool4"]))
 
+        conv_t1 = tf.nn.relu(conv_t1, name=None)
+        # print(net["pool4"].get_shape()) 7 7
+
         fuse_1 = tf.add(conv_t1, net["pool4"], name="fuse_1")
         deconv_shape2 = net["pool3"].get_shape()
         W_t2 = self.create_variable([4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_t2")
 
         b_t2 = self.create_bias_variable([deconv_shape2[3].value], name="b_t2")
         conv_t2 = self.conv2d_transpose_strided(fuse_1, W_t2, b_t2, output_shape=tf.shape(net["pool3"]))
+
+        conv_t2 = tf.nn.relu(conv_t2, name=None)
+        #print(net["pool3"].get_shape())
+
         fuse_2 = tf.add(conv_t2, net["pool3"], name="fuse_2")
 
         shape = tf.shape(input_image)
@@ -113,7 +123,9 @@ class deeplab(object):
         b_t3 = self.create_bias_variable([1], name="b_t3")
         conv_t3 = self.conv2d_transpose_strided(fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
 
+        conv_t3 =  tf.nn.relu(conv_t3, name=None)
 
+        #print(conv_t3.get_shape())
 
 
         return  conv_t3
@@ -188,6 +200,8 @@ class deeplab(object):
         y_label = tf.reshape(y_label, [-1, 1])
         pre_y = tf.reshape(pre_y, [-1, 1])
         loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pre_y,labels=y_label))
+        # loss = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=pre_y, targets=y_label,pos_weight=1))
+
 
         tf.add_to_collection('losses',loss)
 

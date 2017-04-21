@@ -1,6 +1,6 @@
 from data.crop import crop
-from data.img2tfrecords import img2tfrecords
-from  data.preprocess import  wash_data
+from data.img2tfrecords import *
+from  data.preprocess import  wash_data,split_data
 import argparse
 import shutil
 
@@ -16,9 +16,10 @@ a.mkdir()
 a.set_stride(stride)
 a.cropAndSave()
 wash_data()
+test_files_name,validation_files_name,train_files_name = split_data()
+img2bytes("./train.tfrecords",train_files_name)
+img2bytes("./validation.tfrecords",validation_files_name)
+img2bytes("./test.tfrecords",test_files_name)
 
-b = img2tfrecords()
-b.img2bytes()
-
-#shutil.rmtree('data/crop_x')
-#shutil.rmtree('data/crop_y')
+shutil.rmtree('data/crop_x')
+shutil.rmtree('data/crop_y')
