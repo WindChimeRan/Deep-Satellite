@@ -3,9 +3,9 @@ from read_tfrecorder import input_pipeline
 from network.fcn_atrous import loss,iou
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_string("model_dir", "./", "Path to vgg model mat")
-tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
-tf.flags.DEFINE_string("logs_dir", "logs/", "path to logs directory")
+# tf.flags.DEFINE_string("model_dir", "./", "Path to vgg model mat")
+# tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
+# tf.flags.DEFINE_string("logs_dir", "logs/", "path to logs directory")
 
 IMAGE_SIZE = 100
 TEST_SIZE = 1821
@@ -52,7 +52,7 @@ def evaluate():
 
             iou_total = 0
 
-            for step in xrange(MAX_STEP):
+            for step in range(MAX_STEP):
 
                 x, y = sess.run([test_images, test_annotations])
                 feed_dict = {image: x, annotation: y, keep_probability: 1.0}
@@ -66,6 +66,8 @@ def evaluate():
             coord.request_stop()
             coord.join(threads)
             sess.close()
+
+    return mIoU
 
 def main(argv=None):
 

@@ -7,13 +7,77 @@ from functools import partial
 FLAGS = tf.flags.FLAGS
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
 
-MAX_ITERATION = int(1e5 + 1)
+# MAX_ITERATION = int(1e5 + 1)
 NUM_OF_CLASSESS = 1
 IMAGE_SIZE = 100
 
 dtype = tf.float32
 
+def bottleneck_unit(x, out_chan1, out_chan2, down_stride=False, up_stride=False, name=None):
+    """
+    Modified implementation from github ry?!
+    """
 
+    def conv_transpose(tensor, out_channel, shape, strides, name=None):
+        out_shape = tensor.get_shape().as_list()
+        in_channel = out_shape[-1]
+        kernel = weight_variable([shape, shape, out_channel, in_channel], name=name)
+        shape[-1] = out_channel
+        return tf.nn.conv2d_transpose(x, kernel, output_shape=out_shape, strides=[1, strides, strides, 1],
+                                      padding='SAME', name='conv_transpose')
+
+    def conv(tensor, out_chans, shape, strides, name=None):
+        in_channel = tensor.get_shape().as_list()[-1]
+        kernel = weight_variable([shape, shape, in_channel, out_chans], name=name)
+        return tf.nn.conv2d(x, kernel, strides=[1, strides, strides, 1], padding='SAME', name='conv')
+
+    def bn(tensor, name=None):
+        """
+        :param tensor: 4D tensor input
+        :param name: name of the operation
+        :return: local response normalized tensor - not using batch normalization :(
+        """
+        return tf.contrib.layers.batch_norm(tensor,center = True,scale = True, is_training = True)
+        # return tf.nn.lrn(tensor, depth_radius=5, bias=2, alpha=1e-4, beta=0.75, name=name)
+
+    in_chans = x.get_shape().as_list()[3]
+
+    if down_stride or up_stride:
+        first_stride = 2
+    else:
+        first_stride = 1
+
+    with tf.variable_scope('res%s' % name):
+        if in_chans == out_chan2:
+            b1 = x
+        else:
+            with tf.variable_scope('branch1'):
+                if up_stride:
+                    b1 = conv_transpose(x, out_chans=out_chan2, shape=1, strides=first_stride,
+                                        name='res%s_branch1' % name)
+                else:
+                    b1 = conv(x, out_chans=out_chan2, shape=1, strides=first_stride, name='res%s_branch1' % name)
+                b1 = bn(b1, 'bn%s_branch1' % name)
+
+        with tf.variable_scope('branch2a'):
+            if up_stride:
+                b2 = conv_transpose(x, out_chans=out_chan1, shape=1, strides=first_stride, name='res%s_branch2a' % name)
+            else:
+                b2 = conv(x, out_chans=out_chan1, shape=1, strides=first_stride, name='res%s_branch2a' % name)
+            b2 = bn(b2, 'bn%s_branch2a' % name)
+            b2 = tf.nn.relu(b2, name='relu')
+
+        with tf.variable_scope('branch2b'):
+            b2 = conv(b2, out_chans=out_chan1, shape=3, strides=1, name='res%s_branch2b' % name)
+            b2 = bn(b2, 'bn%s_branch2b' % name)
+            b2 = tf.nn.relu(b2, name='relu')
+
+        with tf.variable_scope('branch2c'):
+            b2 = conv(b2, out_chans=out_chan2, shape=1, strides=1, name='res%s_branch2c' % name)
+            b2 = bn(b2, 'bn%s_branch2c' % name)
+
+        x = b1 + b2
+        return tf.nn.relu(x, name='relu')
 def iou(pred_y,y):
 
     pred_y = tf.squeeze(pred_y)
@@ -24,8 +88,19 @@ def iou(pred_y,y):
 
 
 def loss(x,y,keep_probability):
+
     pred_annotation, logits = inference(x, keep_probability)
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.squeeze(logits), labels=tf.cast(y,dtype)))
+
+    # loss_area = tf.reduce_mean(tf.abs(tf.reduce_sum(tf.squeeze(logits))-tf.reduce_sum(tf.cast(y,dtype))))
+    #
+    # inter = tf.reduce_sum(tf.multiply(tf.squeeze(logits), tf.cast(y,dtype)))
+    # union = tf.reduce_sum(tf.squeeze(logits)+ tf.cast(y,dtype)- tf.multiply(tf.squeeze(logits), tf.cast(y,dtype)))
+    # iou_loss = 1.0 - inter/union
+
+    # loss = loss + loss_area + iou_loss
+    # loss = iou_loss
+
     return pred_annotation,loss
 
 def vgg_net(weights, image):
@@ -49,15 +124,20 @@ def vgg_net(weights, image):
     net = {}
     current = image
     for i, name in enumerate(layers):
-        kind = name[:4]
 
+        kind = name[:4]
 
         if kind == 'conv':
             kernels, bias = weights[i][0][0][0][0]
             # matconvnet: weights are [width, height, in_channels, out_channels]
             # tensorflow: weights are [height, width, in_channels, out_channels]
-            kernels = get_variable(np.transpose(kernels, (1, 0, 2, 3)), name=name + "_w")
-            bias = get_variable(bias.reshape(-1), name=name + "_b")
+
+            if i<FLAGS.frozen_rate:
+                kernels = get_variable(np.transpose(kernels, (1, 0, 2, 3)), name=name + "_w",trainable=False)
+                bias = get_variable(bias.reshape(-1), name=name + "_b",trainable=False)
+            else:
+                kernels = get_variable(np.transpose(kernels, (1, 0, 2, 3)), name=name + "_w",trainable=True)
+                bias = get_variable(bias.reshape(-1), name=name + "_b",trainable=True)
 
             if name[:5] == 'conv5':
                 current = atrous2d_basic(current,kernels,bias,rate=2)
@@ -65,6 +145,8 @@ def vgg_net(weights, image):
                 current = conv2d_basic(current, kernels, bias)
 
         elif kind == 'relu':
+            # current = tf.contrib.layers.batch_norm(current)
+            # current = tf.nn.elu(current, name=name)
             current = tf.nn.relu(current, name=name)
 
         elif kind == 'pool':
@@ -79,7 +161,8 @@ def inference(image, keep_prob):
     Semantic segmentation network definition
     :param image: input image. Should have values in range 0-255
     :param keep_prob:
-    :return:
+    :return annotation_pred:
+    :return conv_t3: logits
     """
     print("setting up vgg initialized conv layers ...")
     model_data = get_model_data(FLAGS.model_dir, MODEL_URL)
@@ -97,17 +180,25 @@ def inference(image, keep_prob):
 
         pool5 = max_pool_2x2(conv_final_layer)
 
+        pool5 = bottleneck_unit(pool5, 512, 512)
+
+
+
         W6 = weight_variable([7, 7, 512, 4096], name="W6")
         b6 = bias_variable([4096], name="b6")
         conv6 = atrous2d_basic(pool5, W6, b6,rate=12)
-        relu6 = tf.nn.relu(conv6, name="relu6")
+        conv6 = tf.contrib.layers.batch_norm(conv6)
+        relu6 = tf.nn.elu(conv6, name="relu6")
 
         relu_dropout6 = tf.nn.dropout(relu6, keep_prob=keep_prob)
 
         W7 = weight_variable([1, 1, 4096, 4096], name="W7")
         b7 = bias_variable([4096], name="b7")
         conv7 = conv2d_basic(relu_dropout6, W7, b7)
-        relu7 = tf.nn.relu(conv7, name="relu7")
+
+        conv7 = tf.contrib.layers.batch_norm(conv7)
+        relu7 = tf.nn.elu(conv7, name="relu7")
+
         relu_dropout7 = tf.nn.dropout(relu7, keep_prob=keep_prob)
 
         W8 = weight_variable([1, 1, 4096, NUM_OF_CLASSESS], name="W8")
@@ -140,10 +231,10 @@ def inference(image, keep_prob):
     return annotation_pred, conv_t3
 
 
-def get_variable(weights, name, dtype = tf.float32):
+def get_variable(weights, name, dtype = tf.float32,trainable=True):
 
     init = tf.constant_initializer(weights, dtype=dtype)
-    var = tf.get_variable(name=name, initializer=init,  shape=weights.shape)
+    var = tf.get_variable(name=name, initializer=init,  shape=weights.shape,trainable=trainable)
     return var
 
 
