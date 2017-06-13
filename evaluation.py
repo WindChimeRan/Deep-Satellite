@@ -1,7 +1,9 @@
 import tensorflow as tf
 from read_tfrecorder import input_pipeline
-from network.fcn_atrous import loss,iou
 
+
+# from network.fcn_atrous import loss,iou
+from network.resnext_atrous import loss,iou
 FLAGS = tf.flags.FLAGS
 # tf.flags.DEFINE_string("model_dir", "./", "Path to vgg model mat")
 # tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")

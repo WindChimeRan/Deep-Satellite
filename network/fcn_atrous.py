@@ -32,11 +32,7 @@ def bottleneck_unit(x, out_chan1, out_chan2, down_stride=False, up_stride=False,
         return tf.nn.conv2d(x, kernel, strides=[1, strides, strides, 1], padding='SAME', name='conv')
 
     def bn(tensor, name=None):
-        """
-        :param tensor: 4D tensor input
-        :param name: name of the operation
-        :return: local response normalized tensor - not using batch normalization :(
-        """
+
         return tf.contrib.layers.batch_norm(tensor,center = True,scale = True, is_training = True)
         # return tf.nn.lrn(tensor, depth_radius=5, bias=2, alpha=1e-4, beta=0.75, name=name)
 
@@ -86,20 +82,45 @@ def iou(pred_y,y):
 
     return inter/union
 
+def class_balanced_sigmoid_cross_entropy(logits, label, name='cross_entropy_loss'):
+    """
+    The class-balanced cross entropy loss,
+    as in `Holistically-Nested Edge Detection
+    <http://arxiv.org/abs/1504.06375>`_.
+    This is more numerically stable than class_balanced_cross_entropy
+
+    :param logits: size: the logits.
+    :param label: size: the ground truth in {0,1}, of the same shape as logits.
+    :returns: a scalar. class-balanced cross entropy loss
+    """
+    y = tf.cast(label, tf.float32)
+
+    count_neg = tf.reduce_sum(1. - y) # the number of 0 in y
+    count_pos = tf.reduce_sum(y) # the number of 1 in y (less than count_neg)
+    beta = count_neg / (count_neg + count_pos)
+    pos_weight = beta / (1 - beta)
+    cost = tf.nn.weighted_cross_entropy_with_logits(logits, y, pos_weight)
+    cost = tf.reduce_mean(cost * (1 - beta), name=name)
+
+    return cost
 
 def loss(x,y,keep_probability):
 
     pred_annotation, logits = inference(x, keep_probability)
+
+    # y = tf.cast(y, tf.float32)
+    #
+    # count_neg = tf.reduce_sum(1. - y) # the number of 0 in y
+    # count_pos = tf.reduce_sum(y) # the number of 1 in y (less than count_neg)
+    # beta = count_neg / (count_neg + count_pos)
+    #
+    # pos_weight = beta / (1 - beta)
+    # cost = tf.nn.weighted_cross_entropy_with_logits(tf.squeeze(logits), y, pos_weight)
+    # # cost = tf.reduce_mean(cost * (1 - beta), name='cross_entropy_loss')
+    # loss = tf.reduce_mean(cost)
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.squeeze(logits), labels=tf.cast(y,dtype)))
 
-    # loss_area = tf.reduce_mean(tf.abs(tf.reduce_sum(tf.squeeze(logits))-tf.reduce_sum(tf.cast(y,dtype))))
-    #
-    # inter = tf.reduce_sum(tf.multiply(tf.squeeze(logits), tf.cast(y,dtype)))
-    # union = tf.reduce_sum(tf.squeeze(logits)+ tf.cast(y,dtype)- tf.multiply(tf.squeeze(logits), tf.cast(y,dtype)))
-    # iou_loss = 1.0 - inter/union
 
-    # loss = loss + loss_area + iou_loss
-    # loss = iou_loss
 
     return pred_annotation,loss
 
@@ -153,6 +174,17 @@ def vgg_net(weights, image):
             current = avg_pool_2x2(current)
         net[name] = current
 
+
+    # print("pool3 ", net['pool3'].get_shape())
+    # print("pool4 ", net['pool4'].get_shape())
+    # print("conv5_4 ", net['conv5_4'].get_shape())
+    '''
+    pool3  (?, 13, 13, 256)
+    pool4  (?, 7, 7, 512)
+    conv5_4  (?, ?, ?, 512)
+    '''
+
+
     return net
 
 
@@ -176,7 +208,7 @@ def inference(image, keep_prob):
 
     with tf.variable_scope("inference"):
         image_net = vgg_net(weights, processed_image)
-        conv_final_layer = image_net["conv5_3"]
+        conv_final_layer = image_net["conv5_4"]
 
         pool5 = max_pool_2x2(conv_final_layer)
 
